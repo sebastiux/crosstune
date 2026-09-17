@@ -3,6 +3,20 @@ import type { ParsedLink, ResolvedMedia } from '@/types'
 import { parseLink } from '@/lib/linkParser'
 import { lookupAppleMedia } from '@/lib/itunes'
 import { resolveSpotifyLink } from '@/lib/spotify'
+import { logShare } from '@/lib/api'
+
+/** Fire-and-forget POST of a successfully resolved share; errors are swallowed. */
+function logResolvedShare(parsed: ParsedLink, result: ResolvedMedia) {
+  logShare({
+    title: result.title,
+    artist: result.kind === 'playlist' ? result.owner ?? 'Unknown curator' : result.artist,
+    album: result.kind === 'track' ? result.album : undefined,
+    sourcePlatform: parsed.platform,
+    spotifyUrl: result.spotifyUrl,
+    appleUrl: result.kind === 'playlist' ? undefined : result.appleUrl,
+    artworkUrl: result.artwork,
+  })
+}
 
 export type ResolveState =
   | { status: 'idle' }
@@ -31,6 +45,7 @@ export function useLinkResolver() {
           ? await lookupAppleMedia(parsed.id)
           : await resolveSpotifyLink(parsed.type, parsed.id)
       setState({ status: 'success', parsed, result })
+      logResolvedShare(parsed, result)
     } catch (e: unknown) {
       setState({
         status: 'error',

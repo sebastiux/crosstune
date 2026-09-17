@@ -17,15 +17,21 @@ ENV VITE_APPLE_MUSIC_TOKEN=$VITE_APPLE_MUSIC_TOKEN
 COPY . .
 RUN npm run build
 
-# ---- Serve stage ----
-FROM nginx:alpine
+# ---- Serve stage: single Node process serves the API + static SPA ----
+FROM node:20-alpine
+WORKDIR /app
 
-# Static files from the Vite build
-COPY --from=build /app/dist /usr/share/nginx/html
+ENV NODE_ENV=production
 
-# nginx config template — envsubst replaces ${PORT} at container start (Railway sets PORT)
-COPY nginx.conf /etc/nginx/templates/default.conf.template
+# Production deps only (express, pg, …)
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --no-audit --no-fund
 
+# Backend + built frontend
+COPY server/ ./server/
+COPY --from=build /app/dist ./dist
+
+# Railway provides PORT at runtime; the server defaults to 7100 locally
 EXPOSE 8080
 
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["node", "server/index.js"]

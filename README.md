@@ -12,14 +12,30 @@ share card that works for everyone, and build a unified playlist you can push to
   Copy as text or export as JSON.
 - **Spotify sync** — connect your Spotify account (OAuth PKCE, client-side only) and
   create the playlist on Spotify with one click.
+- **Shared-song feed** — every successfully converted link is logged to a Postgres-backed
+  API (`server/`) and shown in a "Recently shared" feed on the home page.
 
 ## Local development
 
 ```bash
 npm install
-npm run dev        # dev server on http://localhost:7100
-npm run build      # production build → dist/
+npm run dev          # Vite dev server on http://localhost:7100
+npm run start        # Express API + (in production mode) static SPA on http://localhost:7100
+npm run build        # production build → dist/
 ```
+
+The Express server (`server/index.js`) serves `/api/health`, `/api/shares`
+(`GET` feed, `POST` log) and — when `NODE_ENV=production` — the built SPA from `dist/`.
+
+**Database:** set `DATABASE_URL` (Postgres) to enable the feed:
+
+```bash
+DATABASE_URL=postgres://user:pass@localhost:5432/crosstune npm run start
+```
+
+Without `DATABASE_URL` the server still runs: `/api/health` returns `{ ok: true, db: false }`,
+`/api/shares` returns 503, and the app's feed section shows an offline hint.
+The schema (`shares` table) is created automatically on startup.
 
 ## Configuration
 
@@ -58,14 +74,23 @@ visible to `npm run build`. Rebuild/redeploy after changing them.
 
 ## Deploy to Railway
 
-The repo includes a multi-stage `Dockerfile` (Node build → nginx serve) that Railway
-auto-detects. No extra Railway config is needed:
+The repo includes a multi-stage `Dockerfile` (Node build → single Node serve stage) that
+Railway auto-detects. The final container runs one Node process that serves both the API
+and the static SPA. No extra Railway config is needed:
 
 1. Push this directory (`app/`) to a GitHub repo.
 2. In Railway: **New Project → Deploy from GitHub repo** → pick the repo. Railway builds
-   the Dockerfile and serves the SPA on the generated domain.
-3. The nginx template listens on the `$PORT` Railway provides and falls back to
-   `index.html` for client-side routes.
+   the Dockerfile and serves the app on the generated domain.
+3. **Add Postgres:** in the project, **New → Database → PostgreSQL** and let Railway
+   provision it.
+4. **Wire the connection:** in the app service → **Variables → New Variable** → add
+   `DATABASE_URL` with the reference value `${{Postgres.DATABASE_URL}}` (Railway
+   reference-variable syntax — it points at the database you just created).
+5. Redeploy the app service. The server creates the `shares` table on startup and the
+   "Recently shared" feed goes live.
+
+**Health check:** use `/api/health` (returns `{ "ok": true, "db": true }` when the
+database is connected).
 
 ### After deploying — Spotify settings
 
@@ -78,4 +103,6 @@ Keep `http://localhost:7100/` there for local development.
 
 - Apple Music playlist creation requires a paid Apple Developer account + MusicKit JS
   developer token — the UI slot for it is labeled "coming soon".
-- No server-side secrets exist in this app; everything runs in the browser.
+- The only server-side secret is `DATABASE_URL` (Postgres connection string), which lives
+  in Railway's variables — never in the repo. The Spotify Client ID remains a public,
+  build-time value by design (PKCE flow, no client secret).

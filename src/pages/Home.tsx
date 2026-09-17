@@ -3,6 +3,7 @@ import { useSpotifyAuth } from '@/hooks/useSpotifyAuth'
 import { envAppleMusicToken, envSpotifyClientId } from '@/lib/config'
 import { Header } from '@/components/Header'
 import { LinkConverter } from '@/components/LinkConverter'
+import { RecentShares } from '@/components/RecentShares'
 import { PlaylistBuilder } from '@/components/PlaylistBuilder'
 import { ConnectSection } from '@/components/ConnectSection'
 import { Footer } from '@/components/Footer'
@@ -25,6 +26,7 @@ export default function Home() {
       />
       <main>
         <LinkConverter onAddTrack={playlist.addTrack} isInPlaylist={playlist.contains} />
+        <RecentShares />
         <PlaylistBuilder playlist={playlist} />
         <ConnectSection playlist={playlist} auth={auth} />
       </main>
