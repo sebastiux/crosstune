@@ -1,0 +1,10 @@
+node_modules
+dist
+.git
+.gitignore
+*.md
+!README.md
+Dockerfile
+.dockerignore
+# Never bake local secrets into images — .env.example stays included
+.env
